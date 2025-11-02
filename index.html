@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ganesh Mobile Store</title>
+<style>
+  :root{
+    --orange:#ff8a00; --green:#138808; --white:#ffffff; --muted:#f6f6f6;
+  }
+  *{box-sizing:border-box}
+  body{font-family:Arial, Helvetica, sans-serif; margin:0; background:linear-gradient(180deg,var(--orange),var(--white) 40%,var(--green)); padding:18px;}
+  .app{max-width:1100px;margin:0 auto;background:#fff;border-radius:12px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.08)}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--green),var(--orange));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+  h1{margin:0;font-size:20px}
+  nav{display:flex;gap:8px}
+  button.btn{background:var(--orange);color:#fff;border:0;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700}
+  button.btn.secondary{background:var(--green)}
+  .layout{display:grid;grid-template-columns:1fr 360px;gap:16px;margin-top:16px}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  .panel{background:#fff;padding:14px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,0.04)}
+  .search{display:flex;gap:8px;margin-bottom:12px}
+  .search input{flex:1;padding:10px;border-radius:8px;border:1px solid #eee}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .card{border-radius:10px;overflow:hidden;background:#fafafa;padding:8px;display:flex;flex-direction:column;gap:8px}
+  .card .media{height:160px;border-radius:8px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center}
+  .card img{width:100%;height:100%;object-fit:cover}
+  .price{color:var(--green);font-weight:800}
+  .actions{display:flex;gap:8px;margin-top:auto}
+  .right{display:flex;flex-direction:column;gap:12px}
+  .cart-list{max-height:420px;overflow:auto}
+  .cart-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px;border-bottom:1px solid #f0f0f0}
+  .thumb{width:70px;height:70px;overflow:hidden;border-radius:8px}
+  .thumb img{width:100%;height:100%;object-fit:cover}
+  label{font-weight:700;font-size:13px}
+  input[type="text"], input[type="tel"], input[type="number"], textarea{width:100%;padding:8px;border-radius:8px;border:1px solid #e6e6e6;margin-top:6px}
+  .small{font-size:13px;color:#666}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);z-index:50}
+  .modal .box{background:#fff;padding:16px;border-radius:10px;max-width:720px;width:100%;max-height:85vh;overflow:auto}
+  .admin-products{max-height:200px;overflow:auto}
+  .order-card{border:1px solid #eee;padding:8px;border-radius:8px;margin-bottom:8px;background:#fff}
+  footer{margin-top:14px;text-align:center;color:#333;font-size:13px}
+</style>
+</head>
+<body>
+  <div class="app" role="application">
+    <header>
+      <div class="brand">
+        <div class="logo">GM</div>
+        <div>
+          <h1>Ganesh Refurbished Mobiles</h1>
+          <div class="small">Quality-tested refurbished phones — buy with confidence</div>
+        </div>
+      </div>
+      <nav>
+        <button class="btn" onclick="showView('shop')">Shop</button>
+        <button class="btn secondary" onclick="openCart()">Cart (<span id="cart-count">0</span>)</button>
+        <button class="btn" onclick="openAdminLogin()">Admin</button>
+      </nav>
+    </header>
+
+    <div class="layout">
+      <!-- LEFT: shop -->
+      <main class="panel" id="shop-panel">
+        <div class="search">
+          <input id="search" placeholder="Search phones, model or keyword..." oninput="renderProducts()" />
+          <select id="sort" onchange="renderProducts()">
+            <option value="">Sort</option>
+            <option value="price-asc">Price ↑</option>
+            <option value="price-desc">Price ↓</option>
+          </select>
+        </div>
+
+        <div id="products-grid" class="grid" aria-live="polite"></div>
+      </main>
+
+      <!-- RIGHT: cart + quick admin preview -->
+      <aside class="right">
+        <section class="panel">
+          <h3>Your Cart</h3>
+          <div id="cartList" class="cart-list"></div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn secondary" onclick="openCheckout()" style="flex:1">Checkout</button>
+            <button class="btn" onclick="clearCart()">Clear</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Admin Preview</h3>
+          <div class="small">Recent Orders</div>
+          <div id="ordersPreview" style="max-height:220px;overflow:auto;margin-top:8px"></div>
+          <div style="margin-top:8px"><button class="btn" onclick="openAdminLogin()">Open Admin</button></div>
+        </section>
+      </aside>
+    </div>
+
+    <footer>© Ganesh Refurbished Mobiles • Local demo • Theme: Orange / White / Green</footer>
+  </div>
+
+  <!-- Admin Login Modal -->
+  <div id="adminModal" class="modal" role="dialog" aria-hidden="true">
+    <div class="box">
+      <h3>Admin Login</h3>
+      <p class="small">Enter admin password to manage products & orders</p>
+      <input id="adminPassInput" type="password" placeholder="Admin password" />
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" onclick="adminLogin()">Login</button>
+        <button class="btn" onclick="closeAdminModal()">Cancel</button>
+      </div>
+      <div class="small" style="margin-top:8px">Admin password is required.</div>
+    </div>
+  </div>
+
+  <!-- Admin Panel Modal -->
+  <div id="adminPanel" class="modal" aria-hidden="true">
+    <div class="box">
+      <h3>Admin Dashboard</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:260px">
+          <label>Product name</label>
+          <input id="ap_name" type="text" placeholder="e.g. iPhone 11 (Refurbished)">
+          <label>Price (₹)</label>
+          <input id="ap_price" type="number" placeholder="e.g. 22999">
+          <label>Description / Condition</label>
+          <input id="ap_desc" type="text" placeholder="e.g. Battery 92% • 3 months warranty">
+          <label>Upload up to 5 images</label>
+          <div id="imageInputs" style="display:flex;gap:6px;flex-wrap:wrap">
+            <input type="file" accept="image/*" class="img-input" />
+            <input type="file" accept="image/*" class="img-input" />
+            <input type="file" accept="image/*" class="img-input" />
+            <input type="file" accept="image/*" class="img-input" />
+            <input type="file" accept="image/*" class="img-input" />
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn" onclick="adminAddProduct()">Add Product</button>
+            <button class="btn" onclick="closeAdminPanel()">Close</button>
+          </div>
+        </div>
+        <div style="width:360px">
+          <h4>Products (manage)</h4>
+          <div id="adminProducts" class="admin-products"></div>
+          <hr>
+          <h4>All Orders</h4>
+          <div id="adminOrders" style="max-height:260px;overflow:auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gallery Modal -->
+  <div id="galleryModal" class="modal" aria-hidden="true">
+    <div class="box">
+      <div style="display:flex;gap:12px">
+        <div style="flex:1">
+          <img id="galleryMain" src="" style="width:100%;height:360px;object-fit:contain;border-radius:8px;background:#fafafa" />
+          <div id="galleryRow" style="display:flex;gap:8px;margin-top:8px;overflow:auto"></div>
+        </div>
+        <div style="width:280px">
+          <h3 id="galleryTitle"></h3>
+          <div id="galleryDesc" class="small"></div>
+          <div id="galleryPrice" class="price" style="font-weight:800;margin-top:8px;color:var(--green)"></div>
+          <div style="margin-top:12px"><button class="btn" id="galleryAdd">Add to Cart</button> <button class="btn" onclick="closeGallery()">Close</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div id="checkoutModal" class="modal" aria-hidden="true">
+    <div class="box">
+      <h3>Checkout — Delivery details</h3>
+      <form id="checkoutForm">
+        <label>Full Name</label>
+        <input id="c_name" type="text" required>
+        <label>Phone (10 digits)</label>
+        <input id="c_phone" type="tel" pattern="[0-9]{10}" required>
+        <label>Email (optional)</label>
+        <input id="c_email" type="text" placeholder="email@example.com">
+        <label>Address</label>
+        <textarea id="c_address" rows="3" required></textarea>
+        <label>Pincode (6 digits)</label>
+        <input id="c_pincode" type="number" min="100000" max="999999" required>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn" type="submit">Confirm & Place Order</button>
+          <button class="btn" type="button" onclick="closeCheckout()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+/* ----------------- Storage keys & admin password ----------------- */
+const ADMIN_PASSWORD = "Harish9892@@dada"; // <<< admin password (as requested)
+const K_PRODUCTS = 'gm_products_v2';
+const K_CART = 'gm_cart_v2';
+const K_ORDERS = 'gm_orders_v2';
+
+let products = JSON.parse(localStorage.getItem(K_PRODUCTS)) || [];
+let cart = JSON.parse(localStorage.getItem(K_CART)) || [];
+let orders = JSON.parse(localStorage.getItem(K_ORDERS)) || [];
+
+/* ----------------- Helpers ----------------- */
+function uid(prefix='id'){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,6) }
+function saveAll(){ localStorage.setItem(K_PRODUCTS, JSON.stringify(products)); localStorage.setItem(K_CART, JSON.stringify(cart)); localStorage.setItem(K_ORDERS, JSON.stringify(orders)); }
+function money(n){ return '₹' + Number(n).toLocaleString('en-IN'); }
+function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }) }
+
+/* ----------------- Render: products grid ----------------- */
+function renderProducts(){
+  const grid = document.getElementById('products-grid');
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const sort = document.getElementById('sort').value;
+  let list = products.filter(p => p.name.toLowerCase().includes(q) || (p.desc||'').toLowerCase().includes(q));
+  if(sort === 'price-asc') list.sort((a,b)=>a.price-b.price);
+  if(sort === 'price-desc') list.sort((a,b)=>b.price-a.price);
+  grid.innerHTML = list.map(p => {
+    const img = p.images && p.images[0] ? p.images[0] : placeholder();
+    return `<article class="card" aria-labelledby="t-${p.id}">
+      <div class="media" onclick="openGallery('${p.id}')"><img src="${img}" alt="${p.name}"></div>
+      <h3 id="t-${p.id}">${p.name}</h3>
+      <div class="small">${p.desc||''}</div>
+      <div class="price">${money(p.price)}</div>
+      <div class="actions"><button class="btn" onclick="addToCart('${p.id}')">Add to cart</button><button class="btn small" onclick="openGallery('${p.id}')">View</button></div>
+    </article>`
+  }).join('') || '<div class="small">No products yet</div>';
+  updateCartCount();
+  renderOrdersPreview();
+}
+
+/* ----------------- Cart ----------------- */
+function addToCart(productId){
+  const p = products.find(x=>x.id===productId);
+  if(!p){ alert('Product not found'); return; }
+  cart.push(productId);
+  saveAll();
+  renderCart();
+  updateCartCount();
+  alert(p.name + ' added to cart');
+}
+function renderCart(){
+  const el = document.getElementById('cartList');
+  if(cart.length===0){ el.innerHTML = '<div class="small">Cart empty</div>'; return; }
+  el.innerHTML = cart.map((pid, idx)=>{
+    const p = products.find(x=>x.id===pid);
+    if(!p) return '';
+    return `<div class="cart-row">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="thumb"><img src="${p.images[0]||placeholder()}" alt=""></div>
+        <div><strong>${p.name}</strong><div class="small">${p.desc||''}</div></div>
+      </div>
+      <div style="text-align:right">
+        <div class="small">${money(p.price)}</div>
+        <div style="margin-top:6px"><button class="btn" onclick="removeCart(${idx})">Remove</button></div>
+      </div>
+    </div>`
+  }).join('');
+}
+function removeCart(index){
+  cart.splice(index,1);
+  saveAll(); renderCart(); updateCartCount();
+}
+function clearCart(){ if(!confirm('Clear cart?')) return; cart=[]; saveAll(); renderCart(); updateCartCount(); }
+
+/* ----------------- Checkout modal ----------------- */
+function openCheckout(){
+  if(cart.length===0){ alert('Cart is empty'); return; }
+  document.getElementById('checkoutModal').style.display='flex';
+}
+function closeCheckout(){ document.getElementById('checkoutModal').style.display='none'; }
+document.getElementById('checkoutForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  // validate fields
+  const name = document.getElementById('c_name').value.trim();
+  const phone = document.getElementById('c_phone').value.trim();
+  const email = document.getElementById('c_email').value.trim();
+  const address = document.getElementById('c_address').value.trim();
+  const pincode = document.getElementById('c_pincode').value.trim();
+  if(!name || !phone || !address || !pincode){ alert('Please fill all required fields'); return; }
+  if(!/^\d{10}$/.test(phone)){ alert('Phone must be 10 digits'); return; }
+  if(!/^\d{6}$/.test(pincode)){ alert('Pincode must be 6 digits'); return; }
+
+  // prepare order
+  const items = cart.map(pid => {
+    const p = products.find(x=>x.id===pid);
+    return p? { id:p.id, name:p.name, price:p.price } : null;
+  }).filter(Boolean);
+  if(items.length===0){ alert('Cart empty'); return; }
+
+  const order = {
+    id: uid('ord_'),
+    customer:{ name, phone, email, address, pincode },
+    items,
+    date: new Date().toISOString()
+  };
+  orders.unshift(order);
+
+  // remove ordered products from product list
+  const orderedIds = new Set(items.map(i=>i.id));
+  products = products.filter(p=>!orderedIds.has(p.id));
+
+  // clear cart, persist
+  cart = [];
+  saveAll();
+  renderProducts(); renderCart(); renderAdminOrders(); renderAdminProducts(); renderOrdersPreview();
+  closeCheckout();
+  alert('Order placed successfully! Admin has order details.');
+});
+
+/* ----------------- Gallery ----------------- */
+function openGallery(prodId){
+  const p = products.find(x=>x.id===prodId); if(!p) return;
+  document.getElementById('galleryMain').src = p.images[0]||placeholder();
+  document.getElementById('galleryTitle').textContent = p.name;
+  document.getElementById('galleryDesc').textContent = p.desc||'';
+  document.getElementById('galleryPrice').textContent = money(p.price);
+  const row = document.getElementById('galleryRow'); row.innerHTML='';
+  p.images.forEach((img, idx)=>{
+    const imgEl = document.createElement('img'); imgEl.src = img;
+    imgEl.onclick = ()=>{ document.getElementById('galleryMain').src = img; document.querySelectorAll('#galleryRow img').forEach(x=>x.classList.remove('active')); imgEl.classList.add('active') };
+    if(idx===0) imgEl.classList.add('active');
+    row.appendChild(imgEl);
+  });
+  document.getElementById('galleryAdd').onclick = ()=>{ addToCart(prodId); closeGallery(); };
+  document.getElementById('galleryModal').style.display='flex';
+}
+function closeGallery(){ document.getElementById('galleryModal').style.display='none'; }
+
+/* ----------------- Admin login & panel ----------------- */
+function openAdminLogin(){ document.getElementById('adminModal').style.display='flex'; document.getElementById('adminPassInput').value=''; }
+function closeAdminModal(){ document.getElementById('adminModal').style.display='none'; }
+function adminLogin(){
+  const v = document.getElementById('adminPassInput').value;
+  if(v === ADMIN_PASSWORD){
+    closeAdminModal();
+    document.getElementById('adminPanel').style.display='flex';
+    renderAdminProducts(); renderAdminOrders();
+  } else { alert('Wrong password'); }
+}
+function closeAdminPanel(){ document.getElementById('adminPanel').style.display='none'; }
+
+/* ----------------- Admin: add product ----------------- */
+async function adminAddProduct(){
+  const name = document.getElementById('ap_name').value.trim();
+  const price = Number(document.getElementById('ap_price').value || 0);
+  const desc = document.getElementById('ap_desc').value.trim();
+  if(!name || !price){ alert('Name and price required'); return; }
+  const inputs = Array.from(document.querySelectorAll('#imageInputs .img-input'));
+  const files = inputs.map(i=>i.files[0]).filter(Boolean).slice(0,5);
+  const images = [];
+  if(files.length===0){ images.push(placeholder()); }
+  for(const f of files){
+    const data = await readFileAsDataURL(f);
+    images.push(data);
+  }
+  const prod = { id: uid('prod_'), name, price, desc, images };
+  products.unshift(prod);
+  saveAll(); renderProducts(); renderAdminProducts();
+  // clear inputs
+  document.getElementById('ap_name').value=''; document.getElementById('ap_price').value=''; document.getElementById('ap_desc').value='';
+  document.querySelectorAll('#imageInputs .img-input').forEach(i=>i.value='');
+  alert('Product added');
+}
+
+/* ----------------- Admin: render, delete ----------------- */
+function renderAdminProducts(){
+  const el = document.getElementById('adminProducts'); el.innerHTML = '';
+  if(products.length===0){ el.innerHTML = '<div class="small">No products</div>'; return; }
+  products.forEach(p=>{
+    el.innerHTML += `<div style="display:flex;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #f2f2f2">
+      <div style="width:60px;height:60px;overflow:hidden;border-radius:8px"><img src="${p.images[0]||placeholder()}" style="width:100%;height:100%;object-fit:cover"></div>
+      <div style="flex:1"><b>${escape(p.name)}</b><div class="small">${escape(p.desc||'')}</div><div style="font-weight:700;color:var(--green)">${money(p.price)}</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><button class="btn" onclick="editProduct('${p.id}')">Edit</button><button class="btn" onclick="deleteProduct('${p.id}')">Delete</button></div>
+    </div>`});
+}
+function deleteProduct(id){
+  if(!confirm('Delete product?')) return;
+  products = products.filter(p=>p.id!==id);
+  saveAll(); renderProducts(); renderAdminProducts();
+}
+function editProduct(id){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  const newName = prompt('Name', p.name); if(!newName) return;
+  const newPrice = prompt('Price', p.price); if(newPrice===null) return;
+  p.name = newName; p.price = Number(newPrice)||p.price;
+  saveAll(); renderProducts(); renderAdminProducts();
+}
+
+/* ----------------- Admin: orders ----------------- */
+function renderAdminOrders(){
+  const el = document.getElementById('adminOrders'); el.innerHTML = '';
+  if(orders.length===0){ el.innerHTML = '<div class="small">No orders yet</div>'; return; }
+  orders.forEach(o=>{
+    el.innerHTML += `<div class="order-card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><b>${escape(o.customer.name)}</b> • ${escape(o.customer.phone)}</div>
+        <div class="small">${new Date(o.date).toLocaleString()}</div>
+      </div>
+      <div style="margin-top:6px">${escape(o.customer.address)} • ${escape(o.customer.pincode)}</div>
+      <div style="margin-top:6px"><b>Items:</b><ul>${o.items.map(i=>`<li>${escape(i.name)} — ${money(i.price)}</li>`).join('')}</ul></div>
+    </div>`;
+  });
+}
+
+/* ----------------- Orders preview (small) ----------------- */
+function renderOrdersPreview(){
+  const el = document.getElementById('ordersPreview'); el.innerHTML = '';
+  orders.slice(0,5).forEach(o=> el.innerHTML += `<div style="padding:6px;border-bottom:1px solid #f2f2f2"><b>${escape(o.customer.name)}</b> • ${o.items.length} item(s)</div>`);
+  if(orders.length===0) el.innerHTML = '<div class="small">No recent orders</div>';
+}
+
+/* ----------------- utility ----------------- */
+function updateCartCount(){ document.getElementById('cart-count').textContent = cart.length }
+function placeholder(){ return 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400"><rect width="100%" height="100%" fill="%23f3f3f3"/><text x="50%" y="50%" font-size="24" fill="%23999" dominant-baseline="middle" text-anchor="middle">No Image</text></svg>' }
+function escape(s){ if(!s) return ''; return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;') }
+
+/* ----------------- init & gallery ----------------- */
+function init(){
+  if(products.length===0){
+    // sample demo products
+    products = [
+    ];
+    saveAll();
+  }
+  renderProducts(); renderCart(); renderAdminProducts(); renderAdminOrders(); renderOrdersPreview();
+}
+function renderCart(){ renderCart; } // placeholder to avoid earlier reference (we call below properly)
+init();
+
+/* correct renderCart call now */
+renderCart = function(){ const el = document.getElementById('cartList'); el.innerHTML=''; if(cart.length===0){ el.innerHTML='<div class="small">Cart empty</div>'; updateCartCount(); return;} el.innerHTML = cart.map((pid,idx)=>{ const p = products.find(x=>x.id===pid); if(!p) return ''; return `<div class="cart-row"><div style="display:flex;gap:8px;align-items:center"><div class="thumb"><img src="${p.images[0]||placeholder()}"></div><div><strong>${p.name}</strong><div class="small">${p.desc||''}</div></div></div><div style="text-align:right"><div class="small">${money(p.price)}</div><div style="margin-top:6px"><button class="btn" onclick="removeCart(${idx})">Remove</button></div></div></div>` }).join(''); updateCartCount(); };
+
+/* ensure event bindings (gallery close etc) */
+document.addEventListener('click', function(e){
+  // close modals when clicking outside box
+  ['adminModal','adminPanel','galleryModal','checkoutModal'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(el.style.display==='flex' && e.target===el){ el.style.display='none'; }
+  });
+});
+
+/* ----------------- bootstrap UI ----------------- */
+renderProducts = renderProducts; // no-op reassign to avoid lint notice
+renderProducts();
+renderCart();
+renderAdminProducts();
+renderAdminOrders();
+renderOrdersPreview();
+</script>
+</body>
+</html>
